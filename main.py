@@ -476,7 +476,7 @@ class Calculadora(ctk.CTk):
             try:
                 self.cancelar_mensaje_error()
                 resultado = self.evaluar_expresion(self.pantalla.get())
-                self.resultado_label.configure(text=f"= {resultado}")
+                # self.resultado_label.configure(text=f"= {resultado}")
                 self.pantalla.delete(0, ctk.END)
                 self.pantalla.insert(ctk.END, str(resultado))
             except Exception:
