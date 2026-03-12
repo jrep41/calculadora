@@ -1,10 +1,10 @@
 import customtkinter as ctk
-from tkinter import messagebox
 import math
+import tkinter.font as tkfont
 
 # Configuración de apariencia
-ctk.set_appearance_mode("light")  # Modos: "System" (standard), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Temas: "blue" (standard), "green", "dark-blue"
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 
 class Calculadora(ctk.CTk):
@@ -15,118 +15,195 @@ class Calculadora(ctk.CTk):
         """
         super().__init__()
 
-        self.title("Calculadora Pro")
-        self.geometry("370x480")  # Aumentado de 440 a 480 para dar más espacio
+        self.title("NexaCalc 1.4")
+        self.geometry("400x620")
         self.resizable(False, False)
-        self.configure(
-            fg_color="#D3D3D3"
-        )  # Configura el fondo a gris claro (LightGray)
+        self.configure(fg_color="#121821")
+        self.familia_fuente_digital = self.obtener_familia_fuente_digital()
 
         # Modo científico y unidad de ángulo
         self.modo_cientifico = False
         self.usar_grados = True  # True para grados, False para radianes
+        self.offset_basico = 0
         self.botones_cientificos = []
+        self.botones_basicos = []
+        self.mensaje_error_id = None
+        self.mensaje_parpadeo_id = None
+        self.mensaje_parpadeo_visible = False
 
-        # Toggle de modo científico
-        self.toggle_btn = ctk.CTkButton(
+        for col in range(8):
+            self.grid_columnconfigure(col, weight=1)
+
+        for row in range(3, 8):
+            self.grid_rowconfigure(row, weight=1)
+
+        self.crear_barra_modo()
+        self.crear_display()
+        self.crear_botones_basicos()
+        self.crear_botones_cientificos()
+        self.set_modo(False)
+
+    def crear_barra_modo(self):
+        self.btn_modo = ctk.CTkButton(
             self,
-            text="Modo Científico",
-            width=160,
-            height=35,
-            font=("Arial", 14, "bold"),
-            fg_color="#1f6aa5",
-            hover_color="#144970",
-            command=self.toggle_modo,
+            text="Click toBASIC",
+            height=38,
+            corner_radius=10,
+            font=("Segoe UI", 16, "bold"),
+            fg_color="#1A222E",
+            hover_color="#253142",
+            text_color="#44D37A",
+            border_width=2,
+            border_color="#2DD873",
+            command=lambda: self.set_modo(not self.modo_cientifico),
         )
-        self.toggle_btn.grid(
-            row=0, column=0, columnspan=2, padx=(20, 5), pady=(20, 5), sticky="ew"
+        self.btn_modo.grid(
+            row=0, column=0, columnspan=4, padx=18, pady=(18, 8), sticky="ew"
         )
 
-        # Toggle de unidad de ángulo (inicialmente oculto)
-        self.angulo_btn = ctk.CTkButton(
+    def crear_display(self):
+        self.fuente_pantalla_normal = (self.familia_fuente_digital, 32, "normal")
+        self.fuente_pantalla_error = (self.familia_fuente_digital, 16, "normal")
+        self.color_texto_normal = "#44D37A"
+        self.color_texto_error = "#44D37A"
+
+        self.frame_display = ctk.CTkFrame(
             self,
-            text="DEG",
-            width=160,
-            height=35,
-            font=("Arial", 14, "bold"),
-            fg_color="#5a4a8a",
-            hover_color="#3d3260",
-            command=self.toggle_angulo,
+            height=70,
+            fg_color="#122A21",
+            border_width=2,
+            border_color="#2DD873",
+            corner_radius=12,
         )
-        self.angulo_btn.grid(
-            row=0, column=2, columnspan=2, padx=(5, 20), pady=(20, 5), sticky="ew"
+        self.frame_display.grid(
+            row=1, column=0, columnspan=4, padx=18, pady=(4, 6), sticky="ew"
         )
-        self.angulo_btn.grid_remove()  # Ocultar inicialmente
+        self.frame_display.grid_propagate(False)
 
-        # Aumentada la altura (height) de 50
         self.pantalla = ctk.CTkEntry(
-            self, font=("Arial", 32), height=50, corner_radius=10, justify="right"
+            self.frame_display,
+            font=self.fuente_pantalla_normal,
+            height=34,
+            corner_radius=0,
+            justify="right",
+            fg_color="transparent",
+            border_width=0,
+            text_color=self.color_texto_normal,
         )
-        self.pantalla.grid(
-            row=1, column=0, columnspan=4, padx=20, pady=(5, 20), sticky="nsew"
+        self.pantalla.place(relx=0.5, rely=0.5, relwidth=0.92, anchor="center")
+
+        self.resultado_label = ctk.CTkLabel(
+            self.frame_display,
+            text="",
+            font=(self.familia_fuente_digital, 14, "normal"),
+            text_color="#B8CBC3",
+            anchor="e",
+        )
+        self.resultado_label.place(relx=0.97, rely=0.9, anchor="e")
+
+        self.mensaje_error_overlay = ctk.CTkLabel(
+            self.frame_display,
+            text="",
+            font=self.fuente_pantalla_error,
+            text_color=self.color_texto_error,
+            anchor="center",
         )
 
-        botones = [
-            "7",
-            "8",
-            "9",
-            "/",
-            "4",
-            "5",
-            "6",
-            "*",
-            "1",
-            "2",
-            "3",
-            "-",
-            "C",
-            "0",
-            "=",
-            "+",
+        self.linea = ctk.CTkFrame(self, height=2, fg_color="#2D3A4D", corner_radius=0)
+        self.linea.grid(
+            row=2, column=0, columnspan=8, padx=18, pady=(2, 8), sticky="ew"
+        )
+
+    def crear_botones_basicos(self):
+        layout_basico = [
+            ("AC", 3, 0, 1, 1),
+            ("=", 3, 1, 1, 1),
+            ("+", 3, 2, 1, 1),
+            ("×", 3, 3, 1, 1),
+            ("7", 4, 0, 1, 1),
+            ("8", 4, 1, 1, 1),
+            ("9", 4, 2, 1, 1),
+            ("÷", 4, 3, 1, 1),
+            ("4", 5, 0, 1, 1),
+            ("5", 5, 1, 1, 1),
+            ("6", 5, 2, 1, 1),
+            ("%", 5, 3, 1, 1),
+            ("1", 6, 0, 1, 1),
+            ("2", 6, 1, 1, 1),
+            ("3", 6, 2, 1, 1),
+            ("-", 6, 3, 1, 1),
+            ("0", 7, 0, 1, 2),
+            (".", 7, 2, 1, 1),
+            ("=", 7, 3, 1, 1),
         ]
 
-        r, c = 2, 0
-        for boton in botones:
-            # Colores base y de borde para efecto de profundidad
-            if boton == "=":
-                fg_color = "#2fa572"
-                hover_color = "#217350"
-                border_color = "#1a5a3f"  # Borde más oscuro (sombra inferior)
-            elif boton == "C":
-                fg_color = "#d35b58"
-                hover_color = "#a54543"
-                border_color = "#7a3231"
-            elif boton in ["/", "*", "-", "+"]:
-                fg_color = "#1f6aa5"
-                hover_color = "#144970"
-                border_color = "#0e3451"
-            else:
-                fg_color = "#3b3b3b"
-                hover_color = "#4b4b4b"
-                border_color = "#222222"
-
-            ctk.CTkButton(
+        for texto, fila, col, rowspan, colspan in layout_basico:
+            estilo = self.obtener_estilo_boton_basico(texto)
+            btn = ctk.CTkButton(
                 self,
-                text=boton,
-                width=80,
-                height=60,
-                font=("Arial", 22, "bold"),
-                fg_color=fg_color,
-                hover_color=hover_color,
-                border_width=3,  # Borde más grueso
-                border_color=border_color,  # Actúa como sombra
-                corner_radius=8,  # Un poco más cuadrado para solidez
-                command=lambda b=boton: self.on_click(b),
-            ).grid(
-                row=r, column=c, padx=5, pady=(5, 12)
-            )  # Más margen inferior
-            c += 1
-            if c > 3:
-                c = 0
-                r += 1
+                text=texto,
+                width=84,
+                height=56,
+                font=("Segoe UI", 30 if texto == "=" else 18, "bold"),
+                fg_color=estilo["fg"],
+                hover_color=estilo["hover"],
+                border_width=2,
+                border_color=estilo["border"],
+                text_color=estilo["text"],
+                corner_radius=10,
+                command=lambda t=texto: self.on_click(t),
+            )
+            btn.grid(
+                row=fila,
+                column=col,
+                rowspan=rowspan,
+                columnspan=colspan,
+                padx=5,
+                pady=5,
+                sticky="nsew",
+            )
+            self.botones_basicos.append(
+                {
+                    "widget": btn,
+                    "fila": fila,
+                    "col": col,
+                    "rowspan": rowspan,
+                    "colspan": colspan,
+                }
+            )
 
-        # Botones científicos (inicialmente ocultos)
-        self.crear_botones_cientificos()
+    def obtener_estilo_boton_basico(self, texto):
+        if texto == "AC":
+            return {
+                "fg": "#2DCC6A",
+                "hover": "#27B95E",
+                "border": "#1A8C46",
+                "text": "#EAF8F0",
+            }
+        if texto in {"+", "-", "×", "÷", "%"}:
+            return {
+                "fg": "#1E2936",
+                "hover": "#2A384B",
+                "border": "#3891DD",
+                "text": "#4DAEFF",
+            }
+        if texto == "=":
+            return {
+                "fg": "#2DCC6A",
+                "hover": "#27B95E",
+                "border": "#1A8C46",
+                "text": "#F5FFF8",
+            }
+        return {
+            "fg": "#2E333D",
+            "hover": "#3A404D",
+            "border": "#1C2128",
+            "text": "#EDF2F6",
+        }
+
+    def recolocar_botones_basicos(self):
+        for info in self.botones_basicos:
+            info["widget"].grid_configure(column=info["col"] + self.offset_basico)
 
     def crear_botones_cientificos(self):
         """
@@ -134,69 +211,115 @@ class Calculadora(ctk.CTk):
         Los botones se crean ocultos por defecto.
         """
         botones_cient = [
-            ("sin", 2, 4),
-            ("cos", 3, 4),
-            ("tan", 4, 4),
-            ("√", 5, 4),
-            ("asin", 2, 5),
-            ("acos", 3, 5),
-            ("atan", 4, 5),
-            ("x²", 5, 5),
-            ("log", 2, 6),
-            ("ln", 3, 6),
-            ("exp", 4, 6),
-            ("%", 5, 6),
-            ("π", 2, 7),
-            ("e", 3, 7),
-            ("(", 4, 7),
-            (")", 5, 7),
+            ("log", 3, 0),
+            ("ln", 3, 1),
+            ("√", 3, 2),
+            ("x²", 3, 3),
+            ("sin", 4, 0),
+            ("cos", 4, 1),
+            ("tan", 4, 2),
+            ("exp", 4, 3),
+            ("asin", 5, 0),
+            ("acos", 5, 1),
+            ("atan", 5, 2),
+            ("π", 5, 3),
+            ("(", 6, 0),
+            (")", 6, 1),
+            ("e", 6, 2),
         ]
 
         for texto, fila, col in botones_cient:
-            fg_color = "#5a4a8a"
-            hover_color = "#3d3260"
-            border_color = "#2a1f45"
+            fg_color = "#1E2936"
+            hover_color = "#2A384B"
+            border_color = "#2E86D7"
 
             btn = ctk.CTkButton(
                 self,
                 text=texto,
                 width=80,
-                height=60,
-                font=("Arial", 18, "bold"),
+                height=56,
+                font=("Segoe UI", 18, "bold"),
                 fg_color=fg_color,
                 hover_color=hover_color,
-                border_width=3,
+                text_color="#56B5FF",
+                border_width=2,
                 border_color=border_color,
-                corner_radius=8,
+                corner_radius=10,
                 command=lambda t=texto: self.on_click_cientifico(t),
             )
-            btn.grid(row=fila, column=col, padx=5, pady=(5, 12))
+            btn.grid(row=fila, column=col, padx=5, pady=5, sticky="nsew")
             btn.grid_remove()  # Ocultar inicialmente
             self.botones_cientificos.append(btn)
 
-    def toggle_modo(self):
+        self.angulo_btn = ctk.CTkButton(
+            self,
+            text="deg",
+            width=80,
+            height=56,
+            font=("Segoe UI", 17, "bold"),
+            fg_color="#1E2936",
+            hover_color="#2A384B",
+            text_color="#56B5FF",
+            border_width=2,
+            border_color="#2E86D7",
+            corner_radius=10,
+            command=self.toggle_angulo,
+        )
+        self.angulo_btn.grid(row=6, column=3, padx=5, pady=5, sticky="nsew")
+        self.angulo_btn.grid_remove()
+
+    def obtener_familia_fuente_digital(self):
+        familias_disponibles = set(tkfont.families())
+        familias_preferidas = [
+            "DSEG14 Classic",
+            "DSEG14 Modern",
+            "DSEG7 Classic",
+            "DS-Digital",
+        ]
+
+        for familia in familias_preferidas:
+            if familia in familias_disponibles:
+                return familia
+
+        return "Courier New"
+
+    def set_modo(self, cientifico):
         """
         Cambia entre el modo de calculadora básica y científica.
         Ajusta el tamaño de la ventana y muestra/oculta los botones adicionales.
         """
-        self.modo_cientifico = not self.modo_cientifico
+        self.modo_cientifico = cientifico
 
         if self.modo_cientifico:
-            self.geometry("730x480")  # Ajustado a 480 de alto según el cambio anterior
-            self.toggle_btn.configure(text="Modo Básico")
-            self.angulo_btn.grid()
-            # Expandir la pantalla para que cubra las 8 columnas (0 a 7)
-            self.pantalla.grid(columnspan=8)
+            self.geometry("820x620")
+            self.offset_basico = 4
+            self.frame_display.grid_configure(columnspan=8)
+            self.btn_modo.grid_configure(columnspan=8)
             for btn in self.botones_cientificos:
                 btn.grid()
+            self.angulo_btn.grid()
+            self.btn_modo.configure(
+                text="Click to BASIC",
+                fg_color="#1B2A3F",
+                border_color="#2E86D7",
+                text_color="#56B5FF",
+            )
         else:
-            self.geometry("370x480")  # Ajustado a 480 de alto según el cambio anterior
-            self.toggle_btn.configure(text="Modo Científico")
-            self.angulo_btn.grid_remove()  # Ocultar toggle de ángulo
-            # Reducir la pantalla a las 4 columnas originales
-            self.pantalla.grid(columnspan=4)
+            self.geometry("400x620")
+            self.offset_basico = 0
+            self.frame_display.grid_configure(columnspan=4)
+            self.btn_modo.grid_configure(columnspan=4)
             for btn in self.botones_cientificos:
                 btn.grid_remove()
+            self.angulo_btn.grid_remove()
+            self.btn_modo.configure(
+                text="⚛  Click to SCIENTIFIC",
+                fg_color="#1B2D25",
+                border_color="#2DD873",
+                text_color="#44D37A",
+            )
+
+        self.recolocar_botones_basicos()
 
     def toggle_angulo(self):
         """
@@ -204,13 +327,13 @@ class Calculadora(ctk.CTk):
         Alterna entre Grados (DEG) y Radianes (RAD).
         """
         self.usar_grados = not self.usar_grados
-        self.angulo_btn.configure(text="DEG" if self.usar_grados else "RAD")
+        self.angulo_btn.configure(text="deg" if self.usar_grados else "rad")
 
     def on_click_cientifico(self, boton):
         """
         Maneja los eventos de clic de los botones científicos.
         Inserta la función matemática correspondiente en la posición del cursor o texto personalizado.
-        
+
         Args:
             boton (str): El texto del botón presionado.
         """
@@ -248,10 +371,10 @@ class Calculadora(ctk.CTk):
     def evaluar_expresion(self, expresion):
         """
         Evalúa de forma segura una expresión matemática dada en formato de cadena utilizando un entorno controlado.
-        
+
         Args:
             expresion (str): La cadena que contiene la operación matemática.
-            
+
         Returns:
             any: El resultado del cálculo evaluado.
         """
@@ -280,26 +403,92 @@ class Calculadora(ctk.CTk):
 
         return eval(expresion, safe_dict)
 
+    def mostrar_operacion_invalida(self):
+        if self.mensaje_error_id is not None:
+            self.after_cancel(self.mensaje_error_id)
+            self.mensaje_error_id = None
+        if self.mensaje_parpadeo_id is not None:
+            self.after_cancel(self.mensaje_parpadeo_id)
+            self.mensaje_parpadeo_id = None
+
+        self.pantalla.configure(
+            font=self.fuente_pantalla_normal,
+            justify="right",
+            text_color=self.color_texto_normal,
+        )
+        self.pantalla.delete(0, ctk.END)
+        self.resultado_label.configure(text="")
+        self.mensaje_error_overlay.configure(text="INVALID   OPERATION")
+        self.mensaje_error_overlay.place(relx=0.5, rely=0.5, anchor="center")
+        self.mensaje_parpadeo_visible = True
+        self.mensaje_parpadeo_id = self.after(300, self.alternar_parpadeo_mensaje)
+        self.mensaje_error_id = self.after(3000, self.limpiar_mensaje_error)
+
+    def alternar_parpadeo_mensaje(self):
+        if self.mensaje_parpadeo_visible:
+            self.mensaje_error_overlay.place_forget()
+        else:
+            self.mensaje_error_overlay.place(relx=0.5, rely=0.5, anchor="center")
+
+        self.mensaje_parpadeo_visible = not self.mensaje_parpadeo_visible
+        self.mensaje_parpadeo_id = self.after(300, self.alternar_parpadeo_mensaje)
+
+    def limpiar_mensaje_error(self):
+        if self.mensaje_parpadeo_id is not None:
+            self.after_cancel(self.mensaje_parpadeo_id)
+            self.mensaje_parpadeo_id = None
+
+        self.mensaje_error_overlay.place_forget()
+        self.mensaje_parpadeo_visible = False
+        self.pantalla.configure(
+            font=self.fuente_pantalla_normal,
+            justify="right",
+            text_color=self.color_texto_normal,
+        )
+        self.mensaje_error_id = None
+
+    def cancelar_mensaje_error(self):
+        if self.mensaje_error_id is not None:
+            self.after_cancel(self.mensaje_error_id)
+            self.mensaje_error_id = None
+        if self.mensaje_parpadeo_id is not None:
+            self.after_cancel(self.mensaje_parpadeo_id)
+            self.mensaje_parpadeo_id = None
+
+        self.mensaje_error_overlay.place_forget()
+        self.mensaje_parpadeo_visible = False
+
+        self.pantalla.configure(
+            font=self.fuente_pantalla_normal,
+            justify="right",
+            text_color=self.color_texto_normal,
+        )
+
     def on_click(self, boton):
         """
         Maneja los eventos de clic de los botones básicos de la calculadora (números y operadores).
         También gestiona las acciones especiales de '=' para evaluar y 'C' para borrar.
-        
+
         Args:
             boton (str): El texto o símbolo del botón presionado.
         """
         if boton == "=":
             try:
+                self.cancelar_mensaje_error()
                 resultado = self.evaluar_expresion(self.pantalla.get())
+                # self.resultado_label.configure(text=f"= {resultado}")
                 self.pantalla.delete(0, ctk.END)
                 self.pantalla.insert(ctk.END, str(resultado))
             except Exception:
-                messagebox.showerror("Error", "Expresión inválida")
-                self.pantalla.delete(0, ctk.END)
-        elif boton == "C":
+                self.mostrar_operacion_invalida()
+        elif boton == "AC":
+            self.cancelar_mensaje_error()
             self.pantalla.delete(0, ctk.END)
+            self.resultado_label.configure(text="")
         else:
-            self.pantalla.insert(ctk.END, boton)
+            self.cancelar_mensaje_error()
+            mapeo = {"×": "*", "÷": "/"}
+            self.pantalla.insert(ctk.END, mapeo.get(boton, boton))
 
 
 if __name__ == "__main__":

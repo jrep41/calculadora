@@ -22,13 +22,15 @@ Una calculadora de escritorio moderna, profesional y altamente funcional desarro
 
 ### Instalación
 
-1.  **Clona el repositorio:**
+1. **Clona el repositorio:**
+
     ```bash
     git clone https://github.com/tu-usuario/nombre-del-repo.git
     cd nombre-del-repo
     ```
 
-2.  **Crea y activa un entorno virtual (opcional pero recomendado):**
+2. **Crea y activa un entorno virtual (opcional pero recomendado):**
+
     ```bash
     python -m venv .venv
     # En Windows:
@@ -37,7 +39,8 @@ Una calculadora de escritorio moderna, profesional y altamente funcional desarro
     source .venv/bin/activate
     ```
 
-3.  **Instala las dependencias:**
+3. **Instala las dependencias:**
+
     ```bash
     pip install -r requirements.txt
     ```
